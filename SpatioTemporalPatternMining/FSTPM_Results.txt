@@ -3,9 +3,9 @@ FSTPM --RESULTS--
 
 Insertion operations:(in milliseconds) 
 Total ops = 10
-Avg time: 5.6
+Avg time: 5.9
 5th percentile: 1
-95th percentile: 46
+95th percentile: 45
 median: 1.0
 
 Search operations:(in milliseconds) 
@@ -16,14 +16,14 @@ KNN search operations: (in milliseconds)
 
 Combined operations:(in milliseconds) 
 Total ops = 20
-Avg time: 5.5
+Avg time: 7.2
 5th percentile: 1
-95th percentile: 46
-median: 5.0
+95th percentile: 45
+median: 6.5
 
 FSTPM operations:(in milliseconds) 
 Total ops = 10
-Avg time: 5.4
-5th percentile: 5
-95th percentile: 6
-median: 5.0
+Avg time: 8.5
+5th percentile: 6
+95th percentile: 15
+median: 8.0

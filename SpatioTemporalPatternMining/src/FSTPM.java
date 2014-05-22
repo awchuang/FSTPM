@@ -6,8 +6,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.security.cert.CertStoreSpi;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 import rstar.RStarTree;
@@ -26,10 +28,12 @@ public class FSTPM {
 	private List<Long> rangeRuntime;
 	private List<Long> knnRuntime;
     private Trace logger;
+    private static double range;
 
     public static void main(String[] args) {
     	FSTPM controller = new FSTPM(args);
-
+    	range = 0.00000000001;
+    	
 		System.out.println("Reading input file ...");
 		controller.processInput();
 		controller.patternExtraction();
@@ -74,6 +78,7 @@ public class FSTPM {
         float[] point;
         long start, end;
         int lineNum = 0;
+        String label;
 
         try {
             BufferedReader input =  new BufferedReader(new FileReader(this.inputFile));
@@ -89,15 +94,16 @@ public class FSTPM {
 				case 0:
 				{       //insertion
 					try {
-                        if (lineSplit.length != (this.dimension + 2)) {
+                        /*if (lineSplit.length != (this.dimension + 2)) {
                             throw new AssertionError();
-                        }
+                        }*/
 
                         oid = Float.parseFloat(lineSplit[1]);
                         point = extractPoint(lineSplit, 2);
+                        label = lineSplit[4];
 
                         start = System.currentTimeMillis();
-						tree.insert(new SpatialPoint(point, oid));
+						tree.insert(new SpatialPoint(point, oid, label));
                         end = System.currentTimeMillis();
 
                         this.updateTimeTaken(opType, (end - start));
@@ -271,10 +277,11 @@ public class FSTPM {
 	//////////////// FSTPM ///////////////////
 	protected void patternExtraction(){
 		float opType, oid, k;
-		double range;
+		//double range;
         float[] point;
         long start, end;
         int lineNum = 0;
+		HashMap<List<String>, Integer> pattern = new HashMap<List<String>, Integer>();
         
 		try{
 			BufferedReader input =  new BufferedReader(new FileReader(this.inputFile));
@@ -290,12 +297,12 @@ public class FSTPM {
                     oid = Float.parseFloat(lineSplit[1]);
                     point = extractPoint(lineSplit, 2);
                     //range = Double.parseDouble(lineSplit[this.dimension + 1]);
-                    range = 2;
+                    //range = 2;
                     SpatialPoint center = new SpatialPoint(point);
 
                     start = System.currentTimeMillis();
                     List<SpatialPoint> result = tree.rangeSearch(center, range);
-                    System.out.println(center);
+                    System.out.println("          rrrrrr" + result);
                     System.out.println(tree.pointSearch(center));
                     result.remove(center);
                     end = System.currentTimeMillis();
@@ -304,15 +311,28 @@ public class FSTPM {
                     fstpmRunTime.add(( end - start ));
                     //this.updateTimeTaken(opType, (end - start));
                     
+
+                	System.out.println("rr: " + result);
                     //generate possible patterns
-                    List<Float> elements = coordinateToId(result);
-                    elements.remove(oid);
-                	System.out.println("ee: " + elements);
-            		List<List<Float>> candidates = candExtraction(elements);
+                    //List<Float> elements = coordinateToId(result);
+                    //elements.remove(oid);
+                	//System.out.println("ee: " + elements);
+            		List<List<SpatialPoint>> candidates = candExtraction(result);
             		System.out.println("cc: " + candidates);
             		
-                	
-                    
+            		List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
+            		for(int i = 0; i < candidates.size(); i++){
+            			System.out.println(candidates.get(i));
+            			if(rangeCheck(candidates.get(i), center) == true){
+            				stPattern.add(candidates.get(i));
+            			}
+            			System.out.println(rangeCheck(candidates.get(i), center));
+            		}
+            		System.out.println(stPattern);
+            		
+            		cordsToLabel(stPattern, pattern);
+            		
+            		                    
                 }
                 catch (Exception e) {
                     logger.traceError("Exception while processing line " + lineNum +
@@ -321,9 +341,8 @@ public class FSTPM {
                 catch (AssertionError error){
                     logger.traceError("Error while processing line " + lineNum +
                             ". Skipped range search. message: "+error.getMessage());
-                }
-                
-			}
+                }                
+			}			
 			input.close();
 		}
 		catch (Exception e) {
@@ -340,14 +359,15 @@ public class FSTPM {
 		return result;
 	}
 	
-	private List<List<Float>> candExtraction(List<Float> src){
-		List<List<Float>> result = new ArrayList<List<Float>>();
-		float f = (float) 0.0;
+	private List<List<SpatialPoint>> candExtraction(List<SpatialPoint> src){
+		List<List<SpatialPoint>> result = new ArrayList<List<SpatialPoint>>();
+		//float f = (float) 0.0;
+		SpatialPoint sp = new SpatialPoint();
 		
 		for (int i = 2; i <= src.size(); i++) {
-	    	List<Float> to = new ArrayList<Float>();
+	    	List<SpatialPoint> to = new ArrayList<SpatialPoint>();
 			for (int k = 0; k < i; k++) {
-				to.add(f);
+				to.add(sp);
 			}
 			comb(src, to, i, src.size(), i, result);
 	    }
@@ -355,9 +375,9 @@ public class FSTPM {
 	}
 	
 	//C(m, n) = C(m-1, n-1) + C(m-1, n)
-	private void comb(List<Float> from, List<Float> to, int len, int m, int n, List<List<Float>> dst) {
+	private void comb(List<SpatialPoint> from, List<SpatialPoint> to, int len, int m, int n, List<List<SpatialPoint>> dst) {
 		if (n == 0) {
-			List<Float> result = new ArrayList<Float>(to.size());
+			List<SpatialPoint> result = new ArrayList<SpatialPoint>(to.size());
 			for(int i = 0; i < to.size(); i++){
 				result.add(to.get(i));
 			}
@@ -372,14 +392,35 @@ public class FSTPM {
 			}
 		}
 	}
-	
-	private boolean rangeCheck(List<Float> cand){
-		List<>
+
+	private Boolean rangeCheck(List<SpatialPoint> cand, SpatialPoint center){
+		float centerX =  center.getCords()[0];
+		float centerY =  center.getCords()[1];
+		
 		for(int i = 0; i < cand.size(); i++){
-			
+			double distance = Math.sqrt(Math.pow(centerX - cand.get(i).getCords()[0], 2) + Math.pow(centerY - cand.get(i).getCords()[1], 2));
+			System.out.println(center + " c " + cand.get(i) + " AA " + distance);
+			if(distance > range){
+				return false;
+			}
 		}
+		return true;		
 	}
 	
+	private void cordsToLabel(List<List<SpatialPoint>> src, HashMap<List<String>, Integer> dst){
+		for(int i = 0; i < src.size(); i++){
+			List<String> temp = new ArrayList<String>();
+			for(int k = 0; k < src.get(i).size(); k++){
+				temp.add(src.get(i).get(k).getLabel());
+			}
+			if(dst.containsKey(temp))
+				dst.put(temp, dst.get(temp)+1);
+			else
+				dst.put(temp, 1);
+			System.out.println(temp);
+		}
+		System.out.println(dst);
+	}
 }
 
 
