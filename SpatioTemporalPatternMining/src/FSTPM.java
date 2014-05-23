@@ -312,13 +312,13 @@ public class FSTPM {
 
                     start = System.currentTimeMillis();
                     List<SpatialPoint> result = tree.rangeSearch(center, range*0.01*2);
-                    //System.out.println("          rrrrrr" + result);
-                    System.out.println(tree.pointSearch(center));
-                    result.remove(center);
-                    durationCheck(result, time);
+                    //System.out.println(center);
+                    //System.out.println("           rrrrr" + result);
+                    result = durationCheck(result, time, oid);
+                    //System.out.println("            rrrr" + result);
                     end = System.currentTimeMillis();
                     
-                    logger.trace("Range Search(" + range*0.01*2 + ", " + center + "):\n" + Utils.SpatialPointListToString(result));
+                    //logger.trace("Range Search(" + range*0.01*2 + ", " + center + "):\n" + Utils.SpatialPointListToString(result));
                     fstpmRunTime.add(( end - start ));
                     //this.updateTimeTaken(opType, (end - start));
                     
@@ -329,17 +329,17 @@ public class FSTPM {
                     //elements.remove(oid);
                 	//System.out.println("ee: " + elements);
             		List<List<SpatialPoint>> candidates = candExtraction(result);
-            		System.out.println("cc: " + candidates);
+            		//System.out.println("cc: " + candidates);
             		
             		List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
             		for(int i = 0; i < candidates.size(); i++){
-            			System.out.println(candidates.get(i));
+            			//System.out.println(candidates.get(i));
             			if(rangeCheck(candidates.get(i), center) == true){
             				stPattern.add(candidates.get(i));
             			}
-            			System.out.println(rangeCheck(candidates.get(i), center));
+            			//System.out.println("                         true:" + candidates.get(i));
             		}
-            		System.out.println(stPattern);
+            		//System.out.println(stPattern);
             		
             		cordsToLabel(stPattern, pattern);
             		
@@ -366,6 +366,8 @@ public class FSTPM {
 		List<List<SpatialPoint>> result = new ArrayList<List<SpatialPoint>>();
 		//float f = (float) 0.0;
 		SpatialPoint sp = new SpatialPoint();
+		SpatialPoint head = new SpatialPoint();
+		head = src.remove(0);
 		
 		for (int i = 2; i <= src.size(); i++) {
 	    	List<SpatialPoint> to = new ArrayList<SpatialPoint>();
@@ -374,6 +376,15 @@ public class FSTPM {
 			}
 			comb(src, to, i, src.size(), i, result);
 	    }
+		for(int i = 0; i < result.size(); i++){
+			result.get(i).add(0, head);
+		}
+		for (int i = 0; i < src.size(); i++){
+			List<SpatialPoint> one = new ArrayList<SpatialPoint>();
+			one.add(head);
+			one.add(src.get(i));
+			result.add(one);
+		}
 	    return result;
 	}
 	
@@ -402,7 +413,7 @@ public class FSTPM {
 		
 		for(int i = 0; i < cand.size(); i++){
 			double distance = GetDistance(centerX, centerY, cand.get(i).getCords()[0], cand.get(i).getCords()[1]);
-			System.out.println(center + " c " + cand.get(i) + " AA " + distance);
+			//System.out.println(center + " c " + cand.get(i) + " AA " + distance);
 			if(distance > range){
 				return false;
 			}
@@ -410,12 +421,19 @@ public class FSTPM {
 		return true;		
 	}
 	
-	private void durationCheck(List<SpatialPoint> result, int time){
-		for(int i = 0; i < result.size() ; i++){
-			System.out.println("time:" + (result.get(i).getTime() - time));
-			if(result.get(i).getTime() - time > duration)
-				result.remove(result.get(i));
+	private List<SpatialPoint> durationCheck(List<SpatialPoint> result, int time, float oid){
+		List<SpatialPoint> re = new ArrayList<SpatialPoint>(1);
+		int size = result.size();
+		
+		//System.out.println("time:" + result.size());
+		for(int i = 0; i < size ; i++){
+			//System.out.println("time:" + (result.get(i).getTime() - time) + "  " + i);
+			if(result.get(i).getOid() == oid)
+				re.add(0, result.get(i));
+			else if(result.get(i).getTime() - time < duration && result.get(i).getTime() - time >= 0)
+				re.add(result.get(i));
 		}		
+		return re;
 	}
 	
 	private void cordsToLabel(List<List<SpatialPoint>> src, HashMap<List<String>, Integer> dst){
@@ -428,7 +446,7 @@ public class FSTPM {
 				dst.put(temp, dst.get(temp)+1);
 			else
 				dst.put(temp, 1);
-			System.out.println(temp);
+			//System.out.println(temp);
 		}
 		System.out.println("dst: " + dst);
 	}
