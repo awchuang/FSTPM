@@ -8,6 +8,7 @@ public class SpatialPoint implements IDtoConvertible {
     private float[] _cords;
     private float  _oid;
     private String _label;
+    private long _time;
 
     public SpatialPoint() {
     }
@@ -35,12 +36,21 @@ public class SpatialPoint implements IDtoConvertible {
         this._oid = oid;
         this._label = label;
     }
+    
+    public SpatialPoint(float[] cords, float oid, String label, long time) {
+        this._cords = cords;
+        this._dimension = cords.length;
+        this._oid = oid;
+        this._label = label;
+        this._time = time;
+    }
 
     public SpatialPoint(PointDTO dto) {
         this._cords = dto.coords;
         this._dimension = dto.coords.length;
         this._oid = dto.oid;
         this._label = dto.label;
+        this._time = dto.time;
     }
 
     public int getDimension(){
@@ -61,6 +71,10 @@ public class SpatialPoint implements IDtoConvertible {
     
     public String getLabel() {
         return _label;
+    }
+    
+    public long getTime() {
+        return _time;
     }
 
     public void setOid(float oid) {
@@ -98,6 +112,6 @@ public class SpatialPoint implements IDtoConvertible {
 
     @Override
     public PointDTO toDTO() {
-        return new PointDTO(_oid, _cords, _label);
+        return new PointDTO(_oid, _cords, _label, _time);
     }
 }

@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.security.cert.CertStoreSpi;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,10 +28,18 @@ public class FSTPM {
 	private List<Long> knnRuntime;
     private Trace logger;
     private static double range;
+    private static int duration;
 
     public static void main(String[] args) {
     	FSTPM controller = new FSTPM(args);
-    	range = 0.00000000001;
+    	range = 2;	// km
+    	duration = 180; // minutes
+    	
+    	/*
+    	 * 1km = 0.0117 lat
+    	 * 1km = 0.009 log
+    	 * 1km = degree 0.01
+    	 */    	
     	
 		System.out.println("Reading input file ...");
 		controller.processInput();
@@ -73,12 +80,12 @@ public class FSTPM {
 
 
 	protected void processInput() {
-        float opType, oid, k;
-		double range;
+        float opType, oid;
         float[] point;
         long start, end;
         int lineNum = 0;
         String label;
+        long time;
 
         try {
             BufferedReader input =  new BufferedReader(new FileReader(this.inputFile));
@@ -101,9 +108,10 @@ public class FSTPM {
                         oid = Float.parseFloat(lineSplit[1]);
                         point = extractPoint(lineSplit, 2);
                         label = lineSplit[4];
+                        time = Long.parseLong(lineSplit[5]);
 
                         start = System.currentTimeMillis();
-						tree.insert(new SpatialPoint(point, oid, label));
+						tree.insert(new SpatialPoint(point, oid, label, time));
                         end = System.currentTimeMillis();
 
                         this.updateTimeTaken(opType, (end - start));
@@ -276,11 +284,12 @@ public class FSTPM {
 	
 	//////////////// FSTPM ///////////////////
 	protected void patternExtraction(){
-		float opType, oid, k;
+		float oid;
 		//double range;
         float[] point;
         long start, end;
         int lineNum = 0;
+        int time;
 		HashMap<List<String>, Integer> pattern = new HashMap<List<String>, Integer>();
         
 		try{
@@ -296,23 +305,24 @@ public class FSTPM {
                 	//range search
                     oid = Float.parseFloat(lineSplit[1]);
                     point = extractPoint(lineSplit, 2);
+                    time = Integer.parseInt(lineSplit[5]);
                     //range = Double.parseDouble(lineSplit[this.dimension + 1]);
                     //range = 2;
                     SpatialPoint center = new SpatialPoint(point);
 
                     start = System.currentTimeMillis();
-                    List<SpatialPoint> result = tree.rangeSearch(center, range);
-                    System.out.println("          rrrrrr" + result);
+                    List<SpatialPoint> result = tree.rangeSearch(center, range*0.01*2);
+                    //System.out.println("          rrrrrr" + result);
                     System.out.println(tree.pointSearch(center));
                     result.remove(center);
                     end = System.currentTimeMillis();
                     
-                    logger.trace("Range Search(" + range + ", " + center + "):\n" + Utils.SpatialPointListToString(result));
+                    logger.trace("Range Search(" + range*0.01*2 + ", " + center + "):\n" + Utils.SpatialPointListToString(result));
                     fstpmRunTime.add(( end - start ));
                     //this.updateTimeTaken(opType, (end - start));
                     
 
-                	System.out.println("rr: " + result);
+                	//System.out.println("rr: " + result);
                     //generate possible patterns
                     //List<Float> elements = coordinateToId(result);
                     //elements.remove(oid);
@@ -323,7 +333,7 @@ public class FSTPM {
             		List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
             		for(int i = 0; i < candidates.size(); i++){
             			System.out.println(candidates.get(i));
-            			if(rangeCheck(candidates.get(i), center) == true){
+            			if(rangeCheck(candidates.get(i), center) == true && durationCheck(candidates.get(i), time) == true){
             				stPattern.add(candidates.get(i));
             			}
             			System.out.println(rangeCheck(candidates.get(i), center));
@@ -350,15 +360,7 @@ public class FSTPM {
 		}
 	}
 	
-	private List<Float> coordinateToId(List<SpatialPoint> source){
-		List<Float> result = new ArrayList<Float>();
-				
-		for(int k = 0; k < source.size(); k++){
-			result.add(tree.pointSearch(source.get(k)));
-		}
-		return result;
-	}
-	
+
 	private List<List<SpatialPoint>> candExtraction(List<SpatialPoint> src){
 		List<List<SpatialPoint>> result = new ArrayList<List<SpatialPoint>>();
 		//float f = (float) 0.0;
@@ -398,9 +400,19 @@ public class FSTPM {
 		float centerY =  center.getCords()[1];
 		
 		for(int i = 0; i < cand.size(); i++){
-			double distance = Math.sqrt(Math.pow(centerX - cand.get(i).getCords()[0], 2) + Math.pow(centerY - cand.get(i).getCords()[1], 2));
+			double distance = GetDistance(centerX, centerY, cand.get(i).getCords()[0], cand.get(i).getCords()[1]);
 			System.out.println(center + " c " + cand.get(i) + " AA " + distance);
 			if(distance > range){
+				return false;
+			}
+		}
+		return true;		
+	}
+	
+	private Boolean durationCheck(List<SpatialPoint> cand, int time){
+		for(int i = cand.size()-1; i >0 ; i--){
+			System.out.println("time:" + (cand.get(i).getTime() - time));
+			if(cand.get(i).getTime() - time > duration){
 				return false;
 			}
 		}
@@ -419,8 +431,29 @@ public class FSTPM {
 				dst.put(temp, 1);
 			System.out.println(temp);
 		}
-		System.out.println(dst);
+		System.out.println("dst: " + dst);
 	}
+	
+	public double GetDistance(double Lat1, double Long1, double Lat2, double Long2)
+	{
+		double Lat1r = ConvertDegreeToRadians(Lat1);
+		double Lat2r = ConvertDegreeToRadians(Lat2);
+		double Long1r = ConvertDegreeToRadians(Long1);
+		double Long2r = ConvertDegreeToRadians(Long2);
+
+		double R = 6371; // Earth's radius (km)         
+		double d = Math.acos(Math.sin(Lat1r) *
+				Math.sin(Lat2r) + Math.cos(Lat1r) *
+				Math.cos(Lat2r) *
+				Math.cos(Long2r-Long1r)) * R;
+		return d;
+	}
+	
+	private double ConvertDegreeToRadians(double degrees)
+	{
+		return (Math.PI/180)*degrees;
+	}
+	
 }
 
 
