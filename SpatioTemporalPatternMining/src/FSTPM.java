@@ -8,8 +8,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import rstar.RStarTree;
 import rstar.spatial.SpatialPoint;
@@ -32,7 +34,7 @@ public class FSTPM {
 
     public static void main(String[] args) {
     	FSTPM controller = new FSTPM(args);
-    	range = 2;	// km
+    	range = 1.5;	// km
     	duration = 180; // minutes
     	
     	/*
@@ -43,6 +45,7 @@ public class FSTPM {
     	
 		System.out.println("Reading input file ...");
 		controller.processInput();
+        System.out.println("insert nodes done.");
 		controller.patternExtraction();
 		System.out.println("Finished Processing file ...");
 
@@ -310,13 +313,18 @@ public class FSTPM {
                     //range = 2;
                     SpatialPoint center = new SpatialPoint(point);
 
+                    System.out.println("Oid:" + oid);
+                   // System.out.println("range search begin.");
                     start = System.currentTimeMillis();
                     List<SpatialPoint> result = tree.rangeSearch(center, range*0.01*2);
+                    //System.out.println("range search over.  result size : " + result.size());
                     //System.out.println(center);
                     //System.out.println("           rrrrr" + result);
+                    //System.out.println("duration check begin.");
                     result = durationCheck(result, time, oid);
                     //System.out.println("            rrrr" + result);
                     end = System.currentTimeMillis();
+                    System.out.println("result size : " + result.size());
                     
                     //logger.trace("Range Search(" + range*0.01*2 + ", " + center + "):\n" + Utils.SpatialPointListToString(result));
                     fstpmRunTime.add(( end - start ));
@@ -328,8 +336,10 @@ public class FSTPM {
                     //List<Float> elements = coordinateToId(result);
                     //elements.remove(oid);
                 	//System.out.println("ee: " + elements);
+                    System.out.println("cand Extraction begin.");
             		List<List<SpatialPoint>> candidates = candExtraction(result);
             		//System.out.println("cc: " + candidates);
+            		System.out.println("cand Extraction over. cand size:" + candidates.size());
             		
             		List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
             		for(int i = 0; i < candidates.size(); i++){
@@ -354,7 +364,20 @@ public class FSTPM {
                             ". Skipped range search. message: "+error.getMessage());
                 }                
 			}			
+			FileWriter output = new FileWriter("output.txt");			
+	        List<Map.Entry<List<String>, Integer>> list_Data = new ArrayList<Map.Entry<List<String>, Integer>>(pattern.entrySet());
+	        Collections.sort(list_Data, new Comparator<Map.Entry<List<String>, Integer>>(){
+	            public int compare(Map.Entry<List<String>, Integer> entry1,
+	                               Map.Entry<List<String>, Integer> entry2){
+	                return (entry2.getValue() - entry1.getValue());
+	            }
+	        });
+	        for (Map.Entry<List<String>, Integer> entry:list_Data) {
+	        	//System.out.println(entry.getKey() + " : " + pattern.get(entry.getKey()));
+	        	output.write(entry.getKey() + " : " + pattern.get(entry.getKey()) + "\n");
+	        }
 			input.close();
+			output.close();
 		}
 		catch (Exception e) {
 			logger.traceError("Error while reading input file. Line " + lineNum + " Skipped\nError Details:");
@@ -369,7 +392,8 @@ public class FSTPM {
 		SpatialPoint head = new SpatialPoint();
 		head = src.remove(0);
 		
-		for (int i = 2; i <= src.size(); i++) {
+		//for (int i = 2; i <= src.size(); i++) {
+		for (int i = 2; i <= 4 && i <= src.size(); i++) {
 	    	List<SpatialPoint> to = new ArrayList<SpatialPoint>();
 			for (int k = 0; k < i; k++) {
 				to.add(sp);
@@ -442,13 +466,14 @@ public class FSTPM {
 			for(int k = 0; k < src.get(i).size(); k++){
 				temp.add(src.get(i).get(k).getLabel());
 			}
+			Collections.sort(temp);
 			if(dst.containsKey(temp))
 				dst.put(temp, dst.get(temp)+1);
 			else
 				dst.put(temp, 1);
 			//System.out.println(temp);
 		}
-		System.out.println("dst: " + dst);
+		//System.out.println("dst: " + dst);
 	}
 	
 	public double GetDistance(double Lat1, double Long1, double Lat2, double Long2)
