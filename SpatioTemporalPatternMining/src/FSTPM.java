@@ -16,11 +16,14 @@ import java.util.Map;
 import rstar.RStarTree;
 import rstar.spatial.SpatialPoint;
 import util.Trace;
-import util.Utils;
+import algorithms.Version1;
 
 public class FSTPM {
 	private RStarTree tree;
+	private Version1 alg1;
     private int dimension;
+    private double range;
+    private int duration;
 	private String inputFile;
 	private String resultFile;
 	private List<Long> insertRunTime;
@@ -29,25 +32,15 @@ public class FSTPM {
 	private List<Long> rangeRuntime;
 	private List<Long> knnRuntime;
     private Trace logger;
-    private static double range;
-    private static int duration;
 
     public static void main(String[] args) {
     	FSTPM controller = new FSTPM(args);
-    	range = 1.5;	// km
-    	duration = 180; // minutes
-    	
-    	/*
-    	 * 1km = 0.0117 lat
-    	 * 1km = 0.009 log
-    	 * 1km = degree 0.01
-    	 */    	
     	
 		System.out.println("Reading input file ...");
 		controller.processInput();
-        System.out.println("insert nodes done.");
-		controller.patternExtraction();
 		System.out.println("Finished Processing file ...");
+		
+		controller.patternExtraction();
 
         controller.writeRuntimeToFile(controller.insertRunTime, "Insertion_runtime.txt");
         controller.writeRuntimeToFile(controller.searchRunTime, "Search_runtime.txt");
@@ -59,20 +52,20 @@ public class FSTPM {
 	}
 
 	public FSTPM(String[] args) {
-		if(args.length >= 2){
+		if(args.length == 4){
 			this.inputFile = args[0];
             this.dimension = Integer.parseInt(args[1]);
-
-			if (args.length >= 3)
-				this.resultFile = args[2];
-			else
-				this.resultFile = this.getClass().getSimpleName()+ "_Results.txt";
+            this.range = Double.parseDouble(args[2]);
+            this.duration = Integer.parseInt(args[3]);
+            
+            this.resultFile = this.getClass().getSimpleName() + "r" + this.range + "d" + this.duration + "_Results.txt";
 
 		} else {
 			this.printUsage();
 			System.exit(1);
 		}
 		tree = new RStarTree(dimension);
+		alg1 = new Version1();
 		this.insertRunTime = new ArrayList<Long>();
 		this.searchRunTime = new ArrayList<Long>();
 		this.rangeRuntime = new ArrayList<Long>();
@@ -81,14 +74,13 @@ public class FSTPM {
         logger = Trace.getLogger(this.getClass().getSimpleName());
 	}
 
-
 	protected void processInput() {
-        float opType, oid;
+        float oid;
         float[] point;
         long start, end;
         int lineNum = 0;
         String label;
-        long time;
+        int time;
 
         try {
             BufferedReader input =  new BufferedReader(new FileReader(this.inputFile));
@@ -98,43 +90,31 @@ public class FSTPM {
 			while ((line = input.readLine()) != null) {
 				lineNum++;
                 lineSplit = line.split(",");
-                opType = Float.parseFloat(lineSplit[0]);
 
-				switch ((int)opType) {
-				case 0:
-				{       //insertion
-					try {
-                        /*if (lineSplit.length != (this.dimension + 2)) {
-                            throw new AssertionError();
-                        }*/
+                //insertion
+				try {
+                    oid = Float.parseFloat(lineSplit[0]);
+                    point = extractPoint(lineSplit, 1);
+                    label = lineSplit[3];
+                    time = Integer.parseInt(lineSplit[4]);
 
-                        oid = Float.parseFloat(lineSplit[1]);
-                        point = extractPoint(lineSplit, 2);
-                        label = lineSplit[4];
-                        time = Long.parseLong(lineSplit[5]);
+                    start = System.currentTimeMillis();
+					tree.insert(new SpatialPoint(point, oid, label, time));
+                    end = System.currentTimeMillis();
 
-                        start = System.currentTimeMillis();
-						tree.insert(new SpatialPoint(point, oid, label, time));
-                        end = System.currentTimeMillis();
+                    this.updateTimeTaken(0, (end - start));
+                    break;
 
-                        this.updateTimeTaken(opType, (end - start));
-                        break;
-
-                    } catch (Exception e) {
-                        logger.traceError("Exception while processing line " + lineNum +
-                                ". Skipped Insertion. message: "+e.getMessage());
-                        break;
-                    }
-                    catch (AssertionError error){
-                        logger.traceError("Error while processing line " + lineNum +
-                                ".Skipped Insertion. message: "+ error.getMessage());
-                        break;
-                    }
+                } catch (Exception e) {
+                    logger.traceError("Exception while processing line " + lineNum +
+                            ". Skipped Insertion. message: "+e.getMessage());
+                    break;
                 }
-				default:
-					logger.traceError("Invalid query type " + opType + " at line " + lineNum + ". Skipped .. ");
-					break;
-				}
+                catch (AssertionError error){
+                    logger.traceError("Error while processing line " + lineNum +
+                            ".Skipped Insertion. message: "+ error.getMessage());
+                    break;
+                }
 			}
 			input.close();
             tree.save();
@@ -280,15 +260,15 @@ public class FSTPM {
 
 	protected void printUsage() {
 		System.err.println("Usage: "+ this.getClass().getSimpleName() +
-                " <path to input file> <dimension of points> [output file].\noutput file is optional.\n");
+                " <path to input file> <dimension of points> <range> <duration>.\n");
 	}
 	
 	//////////////// r-tree///////////////////
 	
+	
 	//////////////// FSTPM ///////////////////
 	protected void patternExtraction(){
 		float oid;
-		//double range;
         float[] point;
         long start, end;
         int lineNum = 0;
@@ -300,60 +280,49 @@ public class FSTPM {
 			String line;
 			String[] lineSplit;
 			
+			// For all nodes
 			while ((line = input.readLine()) != null) {
 				lineNum++;
                 lineSplit = line.split(",");
                 
                 try{
-                	//range search
-                    oid = Float.parseFloat(lineSplit[1]);
-                    point = extractPoint(lineSplit, 2);
-                    time = Integer.parseInt(lineSplit[5]);
-                    //range = Double.parseDouble(lineSplit[this.dimension + 1]);
-                    //range = 2;
+                	// Pick one node to be pivot : center
+                    oid = Float.parseFloat(lineSplit[0]);
+                    point = extractPoint(lineSplit, 1);
+                    time = Integer.parseInt(lineSplit[4]);
                     SpatialPoint center = new SpatialPoint(point);
+                    
 
-                    System.out.println("Oid:" + oid);
-                   // System.out.println("range search begin.");
+                    System.out.println(this.range);
+                    
+                    // Find all neighbors within 2R
                     start = System.currentTimeMillis();
-                    List<SpatialPoint> result = tree.rangeSearch(center, range*0.01*2);
-                    //System.out.println("range search over.  result size : " + result.size());
-                    //System.out.println(center);
-                    //System.out.println("           rrrrr" + result);
-                    //System.out.println("duration check begin.");
-                    result = durationCheck(result, time, oid);
-                    //System.out.println("            rrrr" + result);
+                    List<SpatialPoint> result = tree.rangeSearch(center, this.range*0.01*2);                 
                     end = System.currentTimeMillis();
-                    System.out.println("result size : " + result.size());
                     
-                    //logger.trace("Range Search(" + range*0.01*2 + ", " + center + "):\n" + Utils.SpatialPointListToString(result));
+                    
                     fstpmRunTime.add(( end - start ));
-                    //this.updateTimeTaken(opType, (end - start));
                     
+                    // First filtering : remove nodes those time duration > T 
+                    result = alg1.durationCheck(result, time, oid, duration);
 
-                	//System.out.println("rr: " + result);
-                    //generate possible patterns
-                    //List<Float> elements = coordinateToId(result);
-                    //elements.remove(oid);
-                	//System.out.println("ee: " + elements);
-                    System.out.println("cand Extraction begin.");
-            		List<List<SpatialPoint>> candidates = candExtraction(result);
-            		//System.out.println("cc: " + candidates);
-            		System.out.println("cand Extraction over. cand size:" + candidates.size());
+                    System.out.println("result   " + result.size());
+                    
+                    // Generate all possible pattern : candidates
+                    if(result.size() > 1){
+                    	List<List<SpatialPoint>> candidates = alg1.candExtraction(result);                    	
+                    	System.out.println(candidates.size());
             		
-            		List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
-            		for(int i = 0; i < candidates.size(); i++){
-            			//System.out.println(candidates.get(i));
-            			if(rangeCheck(candidates.get(i), center) == true){
-            				stPattern.add(candidates.get(i));
-            			}
-            			//System.out.println("                         true:" + candidates.get(i));
-            		}
-            		//System.out.println(stPattern);
-            		
-            		cordsToLabel(stPattern, pattern);
-            		
-            		                    
+                    	// Second filtering : check whether all nodes in one candidate are located within range R
+                    	List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
+                    	for(int i = 0; i < candidates.size(); i++){
+                    		if(alg1.rangeCheck(candidates.get(i), center, range) == true){
+                    			stPattern.add(candidates.get(i));
+                    		}
+                    	}
+                    	// change node pattern to label pattern and count frequency
+                    	alg1.cordsToLabel(stPattern, pattern);            
+                    }
                 }
                 catch (Exception e) {
                     logger.traceError("Exception while processing line " + lineNum +
@@ -364,8 +333,10 @@ public class FSTPM {
                             ". Skipped range search. message: "+error.getMessage());
                 }                
 			}			
+			
 			FileWriter output = new FileWriter("output.txt");			
-	        List<Map.Entry<List<String>, Integer>> list_Data = new ArrayList<Map.Entry<List<String>, Integer>>(pattern.entrySet());
+	        // sort hashmap by value (frequency)
+			List<Map.Entry<List<String>, Integer>> list_Data = new ArrayList<Map.Entry<List<String>, Integer>>(pattern.entrySet());
 	        Collections.sort(list_Data, new Comparator<Map.Entry<List<String>, Integer>>(){
 	            public int compare(Map.Entry<List<String>, Integer> entry1,
 	                               Map.Entry<List<String>, Integer> entry2){
@@ -373,7 +344,6 @@ public class FSTPM {
 	            }
 	        });
 	        for (Map.Entry<List<String>, Integer> entry:list_Data) {
-	        	//System.out.println(entry.getKey() + " : " + pattern.get(entry.getKey()));
 	        	output.write(entry.getKey() + " : " + pattern.get(entry.getKey()) + "\n");
 	        }
 			input.close();
@@ -382,118 +352,6 @@ public class FSTPM {
 		catch (Exception e) {
 			logger.traceError("Error while reading input file. Line " + lineNum + " Skipped\nError Details:");
 		}
-	}
-	
-
-	private List<List<SpatialPoint>> candExtraction(List<SpatialPoint> src){
-		List<List<SpatialPoint>> result = new ArrayList<List<SpatialPoint>>();
-		//float f = (float) 0.0;
-		SpatialPoint sp = new SpatialPoint();
-		SpatialPoint head = new SpatialPoint();
-		head = src.remove(0);
-		
-		//for (int i = 2; i <= src.size(); i++) {
-		for (int i = 2; i <= 4 && i <= src.size(); i++) {
-	    	List<SpatialPoint> to = new ArrayList<SpatialPoint>();
-			for (int k = 0; k < i; k++) {
-				to.add(sp);
-			}
-			comb(src, to, i, src.size(), i, result);
-	    }
-		for(int i = 0; i < result.size(); i++){
-			result.get(i).add(0, head);
-		}
-		for (int i = 0; i < src.size(); i++){
-			List<SpatialPoint> one = new ArrayList<SpatialPoint>();
-			one.add(head);
-			one.add(src.get(i));
-			result.add(one);
-		}
-	    return result;
-	}
-	
-	//C(m, n) = C(m-1, n-1) + C(m-1, n)
-	private void comb(List<SpatialPoint> from, List<SpatialPoint> to, int len, int m, int n, List<List<SpatialPoint>> dst) {
-		if (n == 0) {
-			List<SpatialPoint> result = new ArrayList<SpatialPoint>(to.size());
-			for(int i = 0; i < to.size(); i++){
-				result.add(to.get(i));
-			}
-			dst.add(result);
-		} else {
-			to.set(n-1, from.get(m - 1));    	
-			if (m > n - 1) {
-				comb(from, to, len, m - 1, n - 1, dst);
-			}
-			if (m > n) {
-				comb(from, to, len, m - 1, n, dst);
-			}
-		}
-	}
-
-	private Boolean rangeCheck(List<SpatialPoint> cand, SpatialPoint center){
-		float centerX =  center.getCords()[0];
-		float centerY =  center.getCords()[1];
-		
-		for(int i = 0; i < cand.size(); i++){
-			double distance = GetDistance(centerX, centerY, cand.get(i).getCords()[0], cand.get(i).getCords()[1]);
-			//System.out.println(center + " c " + cand.get(i) + " AA " + distance);
-			if(distance > range){
-				return false;
-			}
-		}
-		return true;		
-	}
-	
-	private List<SpatialPoint> durationCheck(List<SpatialPoint> result, int time, float oid){
-		List<SpatialPoint> re = new ArrayList<SpatialPoint>(1);
-		int size = result.size();
-		
-		//System.out.println("time:" + result.size());
-		for(int i = 0; i < size ; i++){
-			//System.out.println("time:" + (result.get(i).getTime() - time) + "  " + i);
-			if(result.get(i).getOid() == oid)
-				re.add(0, result.get(i));
-			else if(result.get(i).getTime() - time < duration && result.get(i).getTime() - time >= 0)
-				re.add(result.get(i));
-		}		
-		return re;
-	}
-	
-	private void cordsToLabel(List<List<SpatialPoint>> src, HashMap<List<String>, Integer> dst){
-		for(int i = 0; i < src.size(); i++){
-			List<String> temp = new ArrayList<String>();
-			for(int k = 0; k < src.get(i).size(); k++){
-				temp.add(src.get(i).get(k).getLabel());
-			}
-			Collections.sort(temp);
-			if(dst.containsKey(temp))
-				dst.put(temp, dst.get(temp)+1);
-			else
-				dst.put(temp, 1);
-			//System.out.println(temp);
-		}
-		//System.out.println("dst: " + dst);
-	}
-	
-	public double GetDistance(double Lat1, double Long1, double Lat2, double Long2)
-	{
-		double Lat1r = ConvertDegreeToRadians(Lat1);
-		double Lat2r = ConvertDegreeToRadians(Lat2);
-		double Long1r = ConvertDegreeToRadians(Long1);
-		double Long2r = ConvertDegreeToRadians(Long2);
-
-		double R = 6371; // Earth's radius (km)         
-		double d = Math.acos(Math.sin(Lat1r) *
-				Math.sin(Lat2r) + Math.cos(Lat1r) *
-				Math.cos(Lat2r) *
-				Math.cos(Long2r-Long1r)) * R;
-		return d;
-	}
-	
-	private double ConvertDegreeToRadians(double degrees)
-	{
-		return (Math.PI/180)*degrees;
 	}
 	
 }
