@@ -60,7 +60,7 @@ public class RStarTree implements ISpatialQuery, IDtoConvertible {
      */
     @Override
     public int insert(SpatialPoint point) {
-        //System.out.println("inserting point with oid=" + point.getOid());
+        System.out.println("inserting point with oid=" + point.getOid());
         RStarLeaf target = chooseLeaf(point);
 
         if (target.isNotFull()) {

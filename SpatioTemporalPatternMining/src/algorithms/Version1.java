@@ -16,12 +16,12 @@ public class Version1 {
 		head = src.remove(0);
 		
 		// generate combination size = 2~4
-		for (int i = 2; i <= 4 && i <= src.size(); i++) {
+		for (int i = 2; i <= src.size(); i++) {
 	    	List<SpatialPoint> to = new ArrayList<SpatialPoint>();
 			for (int k = 0; k < i; k++) {
 				to.add(sp);
 			}
-			comb(src, to, i, src.size(), i, result);
+			result.add(comb(src, to, i, src.size(), i));
 	    }
 		// add pivot to combination size = 2~4
 		// get result size = 3~5
@@ -40,22 +40,19 @@ public class Version1 {
 	}
 	
 	//C(m, n) = C(m-1, n-1) + C(m-1, n)
-	private void comb(List<SpatialPoint> from, List<SpatialPoint> to, int len, int m, int n, List<List<SpatialPoint>> dst) {
+	private List<SpatialPoint> comb(List<SpatialPoint> from, List<SpatialPoint> to, int len, int m, int n) {
 		if (n == 0) {
-			List<SpatialPoint> result = new ArrayList<SpatialPoint>(to.size());
-			for(int i = 0; i < to.size(); i++){
-				result.add(to.get(i));
-			}
-			dst.add(result);
+			return to;
 		} else {
 			to.set(n-1, from.get(m - 1));    	
 			if (m > n - 1) {
-				comb(from, to, len, m - 1, n - 1, dst);
+				comb(from, to, len, m - 1, n - 1);
 			}
 			if (m > n) {
-				comb(from, to, len, m - 1, n, dst);
+				comb(from, to, len, m - 1, n);
 			}
 		}
+		return to;
 	}
 
 	public Boolean rangeCheck(List<SpatialPoint> cand, SpatialPoint center, double range){

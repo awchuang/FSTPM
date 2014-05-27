@@ -27,10 +27,11 @@ public class FSTPM {
 	private String inputFile;
 	private String resultFile;
 	private List<Long> insertRunTime;
+	private List<Long> rangeRunTime;
+	private List<Long> durationRunTime;
+	private List<Long> candsRunTime;
+	private List<Long> labelRunTime;
 	private List<Long> fstpmRunTime;
-	private List<Long> searchRunTime;
-	private List<Long> rangeRuntime;
-	private List<Long> knnRuntime;
     private Trace logger;
 
     public static void main(String[] args) {
@@ -43,9 +44,10 @@ public class FSTPM {
 		controller.patternExtraction();
 
         controller.writeRuntimeToFile(controller.insertRunTime, "Insertion_runtime.txt");
-        controller.writeRuntimeToFile(controller.searchRunTime, "Search_runtime.txt");
-        controller.writeRuntimeToFile(controller.rangeRuntime, "RangeSearch_runtime.txt");
-        controller.writeRuntimeToFile(controller.knnRuntime, "KNNSearch_runtime.txt");
+        controller.writeRuntimeToFile(controller.rangeRunTime, "RangeSearch_runtime.txt");
+        controller.writeRuntimeToFile(controller.durationRunTime, "DurationCheck_runtime.txt");
+        controller.writeRuntimeToFile(controller.candsRunTime, "Candidates_runtime.txt");
+        controller.writeRuntimeToFile(controller.labelRunTime, "LabelPattern_runtime.txt");
         controller.writeRuntimeToFile(controller.fstpmRunTime, "FSTPM_runtime.txt");
 
 		controller.printResults();
@@ -67,9 +69,10 @@ public class FSTPM {
 		tree = new RStarTree(dimension);
 		alg1 = new Version1();
 		this.insertRunTime = new ArrayList<Long>();
-		this.searchRunTime = new ArrayList<Long>();
-		this.rangeRuntime = new ArrayList<Long>();
-		this.knnRuntime = new ArrayList<Long>();
+		this.rangeRunTime = new ArrayList<Long>();
+		this.durationRunTime = new ArrayList<Long>();
+		this.candsRunTime = new ArrayList<Long>();
+		this.labelRunTime = new ArrayList<Long>();
 		this.fstpmRunTime = new ArrayList<Long>();
         logger = Trace.getLogger(this.getClass().getSimpleName());
 	}
@@ -102,8 +105,7 @@ public class FSTPM {
 					tree.insert(new SpatialPoint(point, oid, label, time));
                     end = System.currentTimeMillis();
 
-                    this.updateTimeTaken(0, (end - start));
-                    break;
+                    insertRunTime.add(end - start);
 
                 } catch (Exception e) {
                     logger.traceError("Exception while processing line " + lineNum +
@@ -135,34 +137,15 @@ public class FSTPM {
         return tmp;
     }
 
-    protected void updateTimeTaken(float type, long time) {
-		switch ((int)type) {
-		case 0:
-			insertRunTime.add(time);
-			break;
-		case 1:
-            searchRunTime.add(time);
-            break;
-        case 2:
-			rangeRuntime.add(time);
-			break;
-		case 3:
-			knnRuntime.add(time);
-			break;
-		default:
-			logger.traceError("Invalid Query type encountered. Skipped..");
-			break;
-		}
-	}
-
 	protected void printResults() {
 		logger.trace("\nPerforming Run Time calculations..");
 
 		List<Long> combined = new ArrayList<Long>();
 		combined.addAll(insertRunTime);
-		combined.addAll(searchRunTime);
-		combined.addAll(rangeRuntime);
-		combined.addAll(knnRuntime);
+		combined.addAll(rangeRunTime);
+		combined.addAll(durationRunTime);
+		combined.addAll(candsRunTime);
+		combined.addAll(labelRunTime);
 		combined.addAll(fstpmRunTime);
 
 		String result = "\n"+this.getClass().getSimpleName()+" --RESULTS--";
@@ -170,13 +153,16 @@ public class FSTPM {
 		String temp = "\n\nInsertion operations:(in milliseconds) "+ generateRuntimeReport(insertRunTime);
         logger.trace(temp);
         result += temp;
-		temp = "\n\nSearch operations:(in milliseconds) "+ generateRuntimeReport(searchRunTime);
+		temp = "\n\nRange Search operations:(in milliseconds) "+ generateRuntimeReport(rangeRunTime);
         logger.trace(temp);
         result += temp;
-		temp = "\n\nRange search operations: (in milliseconds) " + generateRuntimeReport(rangeRuntime);
+		temp = "\n\nDuration Check operations: (in milliseconds) " + generateRuntimeReport(durationRunTime);
         logger.trace(temp);
         result += temp;
-		temp = "\n\nKNN search operations: (in milliseconds) " + generateRuntimeReport(knnRuntime);
+		temp = "\n\nCandidates Generation operations: (in milliseconds) " + generateRuntimeReport(candsRunTime);
+        logger.trace(temp);
+        result += temp;
+		temp = "\n\nCords to Label operations: (in milliseconds) " + generateRuntimeReport(labelRunTime);
         logger.trace(temp);
         result += temp;
 		temp = "\n\nCombined operations:(in milliseconds) "+ generateRuntimeReport(combined);
@@ -206,6 +192,7 @@ public class FSTPM {
                 double avg = sum / (double) size;
 
                 result.append("\nTotal ops = ").append(size);
+                result.append("\nTotal time(in minutes) = ").append(sum/(1000*60));
                 result.append("\nAvg time: ").append(avg);
                 result.append("\n5th percentile: ").append(percent5th);
                 result.append("\n95th percentile: ").append(percent95th);
@@ -293,25 +280,33 @@ public class FSTPM {
                     SpatialPoint center = new SpatialPoint(point);
                     
 
-                    System.out.println(this.range);
+                    System.out.println("\nprocessing node " + oid);
+
                     
+                    
+                    System.out.println("Range search begin...");
                     // Find all neighbors within 2R
                     start = System.currentTimeMillis();
-                    List<SpatialPoint> result = tree.rangeSearch(center, this.range*0.01*2);                 
-                    end = System.currentTimeMillis();
+                    List<SpatialPoint> result = tree.rangeSearch(center, this.range*0.01*2);    
+                    end = System.currentTimeMillis();                    
                     
+                    rangeRunTime.add(( end - start ));  
                     
-                    fstpmRunTime.add(( end - start ));
-                    
+                                       
+                    System.out.println("Duration check begin...");
                     // First filtering : remove nodes those time duration > T 
+                    start = System.currentTimeMillis();
                     result = alg1.durationCheck(result, time, oid, duration);
-
-                    System.out.println("result   " + result.size());
+                    end = System.currentTimeMillis();                    
                     
+                    durationRunTime.add(( end - start ));  
+
+                    
+                    System.out.println("Cands generation begin...");
                     // Generate all possible pattern : candidates
+                    start = System.currentTimeMillis();
                     if(result.size() > 1){
-                    	List<List<SpatialPoint>> candidates = alg1.candExtraction(result);                    	
-                    	System.out.println(candidates.size());
+                    	List<List<SpatialPoint>> candidates = alg1.candExtraction(result);      
             		
                     	// Second filtering : check whether all nodes in one candidate are located within range R
                     	List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
@@ -320,9 +315,15 @@ public class FSTPM {
                     			stPattern.add(candidates.get(i));
                     		}
                     	}
+                    	
+                        System.out.println("Cords to Label begin...");
                     	// change node pattern to label pattern and count frequency
-                    	alg1.cordsToLabel(stPattern, pattern);            
-                    }
+                    	alg1.cordsToLabel(stPattern, pattern);
+                    }              
+                    end = System.currentTimeMillis();                    
+                    
+                    candsRunTime.add(( end - start ));
+                    
                 }
                 catch (Exception e) {
                     logger.traceError("Exception while processing line " + lineNum +

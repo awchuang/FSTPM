@@ -1,0 +1,47 @@
+[AAnF, BR] : 13
+[AAnF, RnF] : 13
+[AAF, BR] : 12
+[AAnF, AAnF] : 11
+[AAF, AAnF] : 10
+[AAF, AAF] : 8
+[AAnF, HC] : 7
+[AAF, RnF] : 5
+[BR, MVT] : 5
+[AAnF, BnR] : 4
+[BR, BR] : 4
+[AAnF, MVT] : 3
+[AAnF, RF] : 3
+[AAF, AAF, BR] : 2
+[BR, HC] : 2
+[AAF, R] : 2
+[BR, RF] : 2
+[BnR, HC] : 2
+[AAnF, R] : 2
+[AAF, AAF, AAnF] : 2
+[BR, RnF] : 2
+[AAF, MVT] : 2
+[AAnF, AAnF, BR, RF] : 2
+[AAnF, BR, RF] : 2
+[AAnF, AAnF, RnF] : 1
+[HC, MVT] : 1
+[BR, R] : 1
+[AAnF, AAnF, BnR, HC] : 1
+[BR, BnR] : 1
+[AAnF, AAnF, AAnF, BnR, HC] : 1
+[AAnF, AAnF, BR] : 1
+[AAnF, BR, HC] : 1
+[BnR, RF] : 1
+[BR, BR, MVT] : 1
+[BR, HC, MVT] : 1
+[AAnF, AAnF, HC] : 1
+[R, RnF] : 1
+[AAF, AAF, AAF, AAnF, BR] : 1
+[AAnF, BR, BR, MVT] : 1
+[AAnF, AAnF, BR, R] : 1
+[AAF, AAF, AAF, AAnF] : 1
+[AAF, AAnF, BR] : 1
+[AAnF, BR, BnR, HC] : 1
+[MVT, RnF] : 1
+[AAnF, AAnF, AAnF] : 1
+[MVT, R] : 1
+[HC, RnF] : 1
