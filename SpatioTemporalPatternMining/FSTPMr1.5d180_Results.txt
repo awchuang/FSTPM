@@ -1,0 +1,46 @@
+
+FSTPM --RESULTS--
+
+Insertion operations:(in milliseconds) 
+Total ops = 100
+Total time(in minutes) = 0
+Avg time: 9.59
+5th percentile: 1
+95th percentile: 17
+median: 10.0
+
+Range Search operations:(in milliseconds) 
+Total ops = 100
+Total time(in minutes) = 0
+Avg time: 19.73
+5th percentile: 11
+95th percentile: 28
+median: 20.0
+
+Duration Check operations: (in milliseconds) 
+Total ops = 100
+Total time(in minutes) = 0
+Avg time: 0.04
+5th percentile: 0
+95th percentile: 0
+median: 0.0
+
+Candidates Generation operations: (in milliseconds) 
+Total ops = 100
+Total time(in minutes) = 0
+Avg time: 0.06
+5th percentile: 0
+95th percentile: 1
+median: 0.0
+
+Cords to Label operations: (in milliseconds) 
+
+Combined operations:(in milliseconds) 
+Total ops = 400
+Total time(in minutes) = 0
+Avg time: 7.355
+5th percentile: 0
+95th percentile: 25
+median: 1.0
+
+FSTPM operations:(in milliseconds) 
