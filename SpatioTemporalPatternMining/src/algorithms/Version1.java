@@ -107,7 +107,7 @@ public class Version1 {
 			for(int k = 0; k < src.get(i).size(); k++){
 				temp.add(src.get(i).get(k).getLabel());
 			}
-			Collections.sort(temp);
+			//Collections.sort(temp);
 			if(dst.containsKey(temp))
 				dst.put(temp, dst.get(temp)+1);
 			else
