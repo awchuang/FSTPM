@@ -1,13 +1,21 @@
 package algorithms;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import rstar.spatial.SpatialPoint;
 
 public class Version1 {
+	private long minX;
+    private long minY;
+    private long diff;
 
+    public void setting(long x, long y, long d){
+    	minX = x;
+    	minY = y;
+    	diff = d;
+    }
+    
 	// generate all combination size = 2~5
 	public List<List<SpatialPoint>> candExtraction(List<SpatialPoint> src){
 		List<List<SpatialPoint>> result = new ArrayList<List<SpatialPoint>>();
@@ -16,7 +24,7 @@ public class Version1 {
 		head = src.remove(0);
 		
 		// generate combination size = 2~4
-		for (int i = 2; i <= src.size(); i++) {
+		for (int i = 2; i <= 9; i++) {
 	    	List<SpatialPoint> to = new ArrayList<SpatialPoint>();
 			for (int k = 0; k < i; k++) {
 				to.add(sp);
@@ -56,11 +64,11 @@ public class Version1 {
 	}
 
 	public Boolean rangeCheck(List<SpatialPoint> cand, SpatialPoint center, double range){
-		float centerX =  center.getCords()[0];
-		float centerY =  center.getCords()[1];
+		float centerX =  center.getCords()[0]*diff/10000 + minX;
+		float centerY =  center.getCords()[1]*diff/10000 + minY;
 		
 		for(int i = 0; i < cand.size(); i++){
-			double distance = GetDistance(centerX, centerY, cand.get(i).getCords()[0], cand.get(i).getCords()[1]);
+			double distance = Distance(centerX, centerY, cand.get(i).getCords()[0], cand.get(i).getCords()[1]);
 			if(distance > range){
 				return false;
 			}
@@ -68,7 +76,24 @@ public class Version1 {
 		return true;		
 	}
 	
-	private double GetDistance(double Lat1, double Long1, double Lat2, double Long2)
+	
+	public double Distance(double latitude1, double longitude1, double latitude2, double longitude2)
+	{
+	   double radLatitude1 = latitude1 * Math.PI / 180;
+	   double radLatitude2 = latitude2 * Math.PI / 180;
+	   double l = radLatitude1 - radLatitude2;
+	   double p = longitude1 * Math.PI / 180 - longitude2 * Math.PI / 180;
+	   double distance = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin(l / 2), 2)
+	                    + Math.cos(radLatitude1) * Math.cos(radLatitude2)
+	                    * Math.pow(Math.sin(p / 2), 2)));
+	   distance = distance * 6378137.0;
+	   distance = Math.round(distance * 10000) / 10000;
+
+	   return distance ;
+	}
+	
+	
+	/*private double GetDistance(double Lat1, double Long1, double Lat2, double Long2)
 	{
 		double Lat1r = ConvertDegreeToRadians(Lat1);
 		double Lat2r = ConvertDegreeToRadians(Lat2);
@@ -86,7 +111,7 @@ public class Version1 {
 	private double ConvertDegreeToRadians(double degrees)
 	{
 		return (Math.PI/180)*degrees;
-	}
+	}*/
 		
 	public List<SpatialPoint> durationCheck(List<SpatialPoint> result, int time, float oid, int duration){
 		List<SpatialPoint> re = new ArrayList<SpatialPoint>(1);

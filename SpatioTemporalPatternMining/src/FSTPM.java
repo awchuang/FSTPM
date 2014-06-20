@@ -24,6 +24,7 @@ public class FSTPM {
     private int dimension;
     private double range;
     private int duration;
+    private long diff;
 	private String inputFile;
 	private String resultFile;
 	private List<Long> insertRunTime;
@@ -31,6 +32,7 @@ public class FSTPM {
 	private List<Long> durationRunTime;
 	private List<Long> candsRunTime;
 	private List<Long> labelRunTime;
+	private List<Long> rCheckRunTime;
 	private List<Long> fstpmRunTime;
     private Trace logger;
 
@@ -47,6 +49,7 @@ public class FSTPM {
         controller.writeRuntimeToFile(controller.rangeRunTime, "RangeSearch_runtime.txt");
         controller.writeRuntimeToFile(controller.durationRunTime, "DurationCheck_runtime.txt");
         controller.writeRuntimeToFile(controller.candsRunTime, "Candidates_runtime.txt");
+        controller.writeRuntimeToFile(controller.candsRunTime, "rCheck_runtime.txt");
         controller.writeRuntimeToFile(controller.labelRunTime, "LabelPattern_runtime.txt");
         controller.writeRuntimeToFile(controller.fstpmRunTime, "FSTPM_runtime.txt");
 
@@ -72,6 +75,7 @@ public class FSTPM {
 		this.rangeRunTime = new ArrayList<Long>();
 		this.durationRunTime = new ArrayList<Long>();
 		this.candsRunTime = new ArrayList<Long>();
+		this.rCheckRunTime = new ArrayList<Long>();
 		this.labelRunTime = new ArrayList<Long>();
 		this.fstpmRunTime = new ArrayList<Long>();
         logger = Trace.getLogger(this.getClass().getSimpleName());
@@ -89,8 +93,11 @@ public class FSTPM {
             BufferedReader input =  new BufferedReader(new FileReader(this.inputFile));
             String line;
             String[] lineSplit;
-
-			while ((line = input.readLine()) != null) {
+        	String ini;
+			
+        	ini = input.readLine();
+            
+        	while ((line = input.readLine()) != null) {
 				lineNum++;
                 lineSplit = line.split(",");
 
@@ -118,6 +125,10 @@ public class FSTPM {
                     break;
                 }
 			}
+        	lineSplit = ini.split(",");
+        	alg1.setting(Integer.parseInt(lineSplit[0]), Integer.parseInt(lineSplit[1]), Integer.parseInt(lineSplit[2]));
+        	diff = Integer.parseInt(lineSplit[2]);
+        	
 			input.close();
             tree.save();
 		}
@@ -160,6 +171,9 @@ public class FSTPM {
         logger.trace(temp);
         result += temp;
 		temp = "\n\nCandidates Generation operations: (in milliseconds) " + generateRuntimeReport(candsRunTime);
+        logger.trace(temp);
+        result += temp;
+        temp = "\n\nRange Check Generation operations: (in milliseconds) " + generateRuntimeReport(rCheckRunTime);
         logger.trace(temp);
         result += temp;
 		temp = "\n\nCords to Label operations: (in milliseconds) " + generateRuntimeReport(labelRunTime);
@@ -258,8 +272,10 @@ public class FSTPM {
 		float oid;
         float[] point;
         long start, end;
+        long startrc, startlb, endrc, endlb;
         int lineNum = 0;
         int time;
+        int count = 0;
 		HashMap<List<String>, Integer> pattern = new HashMap<List<String>, Integer>();
         
 		try{
@@ -267,10 +283,12 @@ public class FSTPM {
 			String line;
 			String[] lineSplit;
 			
+			line = input.readLine();
 			// For all nodes
 			while ((line = input.readLine()) != null) {
 				lineNum++;
                 lineSplit = line.split(",");
+                count++;
                 
                 try{
                 	// Pick one node to be pivot : center
@@ -287,7 +305,7 @@ public class FSTPM {
                     System.out.println("Range search begin...");
                     // Find all neighbors within 2R
                     start = System.currentTimeMillis();
-                    List<SpatialPoint> result = tree.rangeSearch(center, this.range*0.01*2);    
+                    List<SpatialPoint> result = tree.rangeSearch(center, this.range*0.01*2*diff/100000);    
                     end = System.currentTimeMillis();                    
                     
                     rangeRunTime.add(( end - start ));  
@@ -304,10 +322,11 @@ public class FSTPM {
                     
                     System.out.println("Cands generation begin...");
                     // Generate all possible pattern : candidates
-                    start = System.currentTimeMillis();
                     if(result.size() > 1){
+                        start = System.currentTimeMillis();
                     	List<List<SpatialPoint>> candidates = alg1.candExtraction(result);      
             		
+                    	startrc = System.currentTimeMillis();
                     	// Second filtering : check whether all nodes in one candidate are located within range R
                     	List<List<SpatialPoint>> stPattern = new ArrayList<List<SpatialPoint>>();
                     	for(int i = 0; i < candidates.size(); i++){
@@ -315,14 +334,20 @@ public class FSTPM {
                     			stPattern.add(candidates.get(i));
                     		}
                     	}
-                    	
+                    	endrc = System.currentTimeMillis();  
+                        rCheckRunTime.add(endrc - startrc);                  
+                    	                    	
                         System.out.println("Cords to Label begin...");
+                        startlb = System.currentTimeMillis();
                     	// change node pattern to label pattern and count frequency
                     	alg1.cordsToLabel(stPattern, pattern);
+                    	endlb = System.currentTimeMillis();      
+                        labelRunTime.add(endlb - startlb);              
+                        
+                        
+                        end = System.currentTimeMillis();     
+                        candsRunTime.add(( (end - start) -(endrc - startrc) -(endlb - startlb) ));
                     }              
-                    end = System.currentTimeMillis();                    
-                    
-                    candsRunTime.add(( end - start ));
                     
                 }
                 catch (Exception e) {
@@ -332,27 +357,35 @@ public class FSTPM {
                 catch (AssertionError error){
                     logger.traceError("Error while processing line " + lineNum +
                             ". Skipped range search. message: "+error.getMessage());
-                }                
+                } 
+                if(count % 5000 == 0){
+                	String fname = "output" + Integer.toString(count) + ".txt";
+                	writeResult(fname, pattern);
+                }
 			}			
 			
-			FileWriter output = new FileWriter("output.txt");			
-	        // sort hashmap by value (frequency)
-			List<Map.Entry<List<String>, Integer>> list_Data = new ArrayList<Map.Entry<List<String>, Integer>>(pattern.entrySet());
-	        Collections.sort(list_Data, new Comparator<Map.Entry<List<String>, Integer>>(){
-	            public int compare(Map.Entry<List<String>, Integer> entry1,
-	                               Map.Entry<List<String>, Integer> entry2){
-	                return (entry2.getValue() - entry1.getValue());
-	            }
-	        });
-	        for (Map.Entry<List<String>, Integer> entry:list_Data) {
-	        	output.write(entry.getKey() + " : " + pattern.get(entry.getKey()) + "\n");
-	        }
+			writeResult("output.txt", pattern);
+			
 			input.close();
-			output.close();
 		}
 		catch (Exception e) {
 			logger.traceError("Error while reading input file. Line " + lineNum + " Skipped\nError Details:");
 		}
+	}
+	private void writeResult(String fname, HashMap<List<String>, Integer> pattern) throws IOException{
+		FileWriter output = new FileWriter(fname);			
+        // sort hashmap by value (frequency)
+		List<Map.Entry<List<String>, Integer>> list_Data = new ArrayList<Map.Entry<List<String>, Integer>>(pattern.entrySet());
+        Collections.sort(list_Data, new Comparator<Map.Entry<List<String>, Integer>>(){
+            public int compare(Map.Entry<List<String>, Integer> entry1,
+                               Map.Entry<List<String>, Integer> entry2){
+                return (entry2.getValue() - entry1.getValue());
+            }
+        });
+        for (Map.Entry<List<String>, Integer> entry:list_Data) {
+        	output.write(entry.getKey() + " : " + pattern.get(entry.getKey()) + "\n");
+        }
+		output.close();
 	}
 	
 }
