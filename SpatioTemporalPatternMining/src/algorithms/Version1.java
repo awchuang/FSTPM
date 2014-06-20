@@ -6,11 +6,11 @@ import java.util.List;
 import rstar.spatial.SpatialPoint;
 
 public class Version1 {
-	private long minX;
-    private long minY;
-    private long diff;
+	private double minX;
+    private double minY;
+    private double diff;
 
-    public void setting(long x, long y, long d){
+    public void setting(double x, double y, double d){
     	minX = x;
     	minY = y;
     	diff = d;
@@ -64,8 +64,8 @@ public class Version1 {
 	}
 
 	public Boolean rangeCheck(List<SpatialPoint> cand, SpatialPoint center, double range){
-		float centerX =  center.getCords()[0]*diff/10000 + minX;
-		float centerY =  center.getCords()[1]*diff/10000 + minY;
+		double centerX =  center.getCords()[0]*diff/10000 + minX;
+		double centerY =  center.getCords()[1]*diff/10000 + minY;
 		
 		for(int i = 0; i < cand.size(); i++){
 			double distance = Distance(centerX, centerY, cand.get(i).getCords()[0], cand.get(i).getCords()[1]);

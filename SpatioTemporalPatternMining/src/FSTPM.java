@@ -24,7 +24,7 @@ public class FSTPM {
     private int dimension;
     private double range;
     private int duration;
-    private long diff;
+    private double diff;
 	private String inputFile;
 	private String resultFile;
 	private List<Long> insertRunTime;
@@ -126,8 +126,8 @@ public class FSTPM {
                 }
 			}
         	lineSplit = ini.split(",");
-        	alg1.setting(Integer.parseInt(lineSplit[0]), Integer.parseInt(lineSplit[1]), Integer.parseInt(lineSplit[2]));
-        	diff = Integer.parseInt(lineSplit[2]);
+        	alg1.setting(Double.parseDouble(lineSplit[0]), Double.parseDouble(lineSplit[1]), Double.parseDouble(lineSplit[2]));
+        	diff = Double.parseDouble(lineSplit[2]);
         	
 			input.close();
             tree.save();
@@ -304,6 +304,7 @@ public class FSTPM {
                     
                     System.out.println("Range search begin...");
                     // Find all neighbors within 2R
+                    //System.out.println(center.getCords()[0] + "   " + center.getCords()[1] + "  " + this.range*0.01*2*diff*100000);
                     start = System.currentTimeMillis();
                     List<SpatialPoint> result = tree.rangeSearch(center, this.range*0.01*2*diff/100000);    
                     end = System.currentTimeMillis();                    
@@ -372,6 +373,7 @@ public class FSTPM {
 			logger.traceError("Error while reading input file. Line " + lineNum + " Skipped\nError Details:");
 		}
 	}
+	
 	private void writeResult(String fname, HashMap<List<String>, Integer> pattern) throws IOException{
 		FileWriter output = new FileWriter(fname);			
         // sort hashmap by value (frequency)
